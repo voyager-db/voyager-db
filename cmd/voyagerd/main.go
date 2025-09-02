@@ -23,7 +23,7 @@ func main() {
 	pflag.StringVar(&cfg.InitialCluster, "initial-cluster", "", "static bootstrap cluster, e.g. 'n1=http://voyager1:2380,n2=http://voyager2:2380,n3=http://voyager3:2380'")
 	pflag.StringVar(&cfg.AdvertiseClient, "advertise-client", "", "advertise client URL (optional)")
 	pflag.StringVar(&cfg.AdvertisePeer, "advertise-peer", "", "advertise peer URL (optional)")
-	pflag.StringVar(&cfg.ClusterToken, "cluster-token", "voyager-cluster", "cluster token")
+	pflag.Uint64Var(&cfg.ClusterID, "cluster-id", 0, "explicit cluster ID (0 = derive from cluster-token and persist)")
 	pflag.BoolVar(&cfg.EnableFastPath, "enable-fast-path", false, "enable Raftx fast path")
 	pflag.BoolVar(&cfg.EnableCRaft, "enable-c-raft", false, "enable C-Raft global tier")
 	pflag.DurationVar(&cfg.SnapshotInterval, "snapshot-interval", 30*time.Second, "periodic snapshot interval")

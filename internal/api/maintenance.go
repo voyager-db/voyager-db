@@ -17,6 +17,7 @@ type StatusProvider interface {
 	LeaderID() uint64
 	RaftIndex() uint64
 	RaftTerm() uint64
+	RaftAppliedIndex() uint64
 	DbSize() int64
 	DbSizeInUse() int64
 	IsLearner() bool
@@ -37,14 +38,15 @@ func NewMaintenance(p StatusProvider) *Maintenance { return &Maintenance{prov: p
 // Unary → return (resp, nil) on success
 func (m *Maintenance) Status(ctx context.Context, _ *etcdserverpb.StatusRequest) (*etcdserverpb.StatusResponse, error) {
 	resp := &etcdserverpb.StatusResponse{
-		Header:      m.prov.Header(),
-		Version:     m.prov.Version(),
-		DbSize:      m.prov.DbSize(),
-		DbSizeInUse: m.prov.DbSizeInUse(),
-		RaftIndex:   m.prov.RaftIndex(),
-		RaftTerm:    m.prov.RaftTerm(),
-		Leader:      m.prov.LeaderID(),
-		IsLearner:   m.prov.IsLearner(),
+		Header:           m.prov.Header(),
+		Version:          m.prov.Version(),
+		DbSize:           m.prov.DbSize(),
+		DbSizeInUse:      m.prov.DbSizeInUse(),
+		RaftIndex:        m.prov.RaftIndex(),
+		RaftTerm:         m.prov.RaftTerm(),
+		RaftAppliedIndex: m.prov.RaftAppliedIndex(),
+		Leader:           m.prov.LeaderID(),
+		IsLearner:        m.prov.IsLearner(),
 	}
 	return resp, nil
 }

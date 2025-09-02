@@ -16,6 +16,9 @@ type Ready struct {
 	Snapshot  raftpb.Snapshot
 	Messages  []raftpb.Message
 	Committed []raftpb.Entry
+
+	// leader from SoftState (0 if unknown)
+	Lead uint64
 }
 
 // nodeImpl wraps raftx.Node and persists Ready() to WAL and memory storage.
@@ -72,6 +75,11 @@ func (c *nodeImpl) pump() {
 			}
 		}
 
+		var lead uint64
+		if rd.SoftState != nil {
+			lead = uint64(rd.SoftState.Lead)
+		}
+
 		// Only after successful persistence, hand the simplified Ready to the app.
 		c.ready <- Ready{
 			HardState: rd.HardState,
@@ -79,6 +87,7 @@ func (c *nodeImpl) pump() {
 			Snapshot:  rd.Snapshot,
 			Messages:  rd.Messages,
 			Committed: rd.CommittedEntries,
+			Lead:      lead,
 		}
 	}
 }
@@ -113,4 +122,4 @@ func (c *nodeImpl) ProposeConfChange(cc raftpb.ConfChange) error {
 func (c *nodeImpl) ApplyConfChange(cc raftpb.ConfChange) error { c.n.ApplyConfChange(cc); return nil }
 func (c *nodeImpl) Step(m raftpb.Message) error                { return c.n.Step(context.Background(), m) }
 func (c *nodeImpl) Stop()                                      { c.n.Stop() }
-func (c *nodeImpl) Storage() Storage                           { return c.storage } // NEW
+func (c *nodeImpl) Storage() Storage                           { return c.storage }

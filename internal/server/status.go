@@ -15,15 +15,18 @@ import (
 // statusProvider implements api.StatusProvider using local process state.
 // Later we will populate these from raft+mvcc.
 type statusProvider struct {
-	dataDir string
-	version string
-	snapFn  func(ctx context.Context) (io.ReadCloser, error)
-	raft    raftStats
+	dataDir   string
+	version   string
+	memberID  uint64
+	clusterID uint64
+	raft      raftStats
+	snapFn    func(ctx context.Context) (io.ReadCloser, error)
 }
 
 type raftStats interface {
 	RaftTerm() uint64
 	RaftIndex() uint64
+	RaftAppliedIndex() uint64
 	LeaderID() uint64
 }
 
@@ -43,8 +46,15 @@ func newStatusProviderWithSnap(cfg Config, snap func(ctx context.Context) (io.Re
 	}
 }
 
-func newStatusProviderWithRaft(cfg Config, snap func(ctx context.Context) (io.ReadCloser, error), r raftStats) api.StatusProvider {
-	return &statusProvider{dataDir: cfg.DataDir, version: version, snapFn: snap, raft: r}
+func newStatusProviderWithRaft(cfg Config, snap func(ctx context.Context) (io.ReadCloser, error), r raftStats, memberID, clusterID uint64) api.StatusProvider {
+	return &statusProvider{
+		dataDir:   cfg.DataDir,
+		version:   version,
+		memberID:  memberID,
+		clusterID: clusterID,
+		raft:      r,
+		snapFn:    snap,
+	}
 }
 
 func (p *statusProvider) Version() string { return p.version }
@@ -54,18 +64,28 @@ func (p *statusProvider) LeaderID() uint64 {
 	}
 	return 0
 }
+
 func (p *statusProvider) RaftIndex() uint64 {
 	if p.raft != nil {
 		return p.raft.RaftIndex()
 	}
 	return 0
 }
+
 func (p *statusProvider) RaftTerm() uint64 {
 	if p.raft != nil {
 		return p.raft.RaftTerm()
 	}
 	return 0
 }
+
+func (p *statusProvider) RaftAppliedIndex() uint64 {
+	if p.raft != nil {
+		return p.raft.RaftAppliedIndex()
+	}
+	return 0
+}
+
 func (p *statusProvider) IsLearner() bool { return false }
 
 func (p *statusProvider) DbSize() int64 {
@@ -96,8 +116,10 @@ func (p *statusProvider) HashKV() (uint32, int64, int64) {
 }
 
 func (p *statusProvider) Header() *etcdserverpb.ResponseHeader {
-	// TODO: set cluster_id and member_id once cluster/raft is available.
-	return &etcdserverpb.ResponseHeader{}
+	return &etcdserverpb.ResponseHeader{
+		MemberId:  p.memberID,
+		ClusterId: p.clusterID,
+	}
 }
 
 // SnapshotOpen prefers the injected Bolt snapshot if present,

@@ -14,7 +14,8 @@ type Config struct {
 	AdvertiseClient string
 	AdvertisePeer   string
 	InitialCluster  string
-	ClusterToken    string
+	// Optional explicit cluster ID. If 0, Voyager derives & persists one.
+	ClusterID uint64
 
 	EnableFastPath   bool
 	EnableCRaft      bool

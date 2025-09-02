@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
@@ -15,6 +17,7 @@ import (
 
 	raftx "github.com/voyager-db/raftx"
 	raftpb "github.com/voyager-db/raftx/raftpb"
+	"go.etcd.io/bbolt"
 	"go.etcd.io/etcd/api/v3/etcdserverpb"
 
 	"github.com/voyager-db/voyager-db/internal/api"
@@ -147,7 +150,26 @@ func (s *Server) Start(ctx context.Context) error {
 	if boltKV != nil {
 		snapFn = boltKV.SnapshotOpen
 	}
-	maintProv := newStatusProviderWithRaft(s.cfg, snapFn, s.prop)
+
+	var clusterID uint64
+	switch {
+	case s.cfg.ClusterID != 0:
+		clusterID = s.cfg.ClusterID
+	case boltKV != nil:
+		if id, ok := loadClusterID(boltKV.DB()); ok {
+			clusterID = id
+		} else {
+			clusterID = randomClusterID()
+			if err := saveClusterID(boltKV.DB(), clusterID); err != nil {
+				log.Printf("cluster: persist clusterID failed: %v", err)
+			}
+		}
+	default:
+		// memory-only: generate but won’t persist
+		clusterID = randomClusterID()
+	}
+
+	maintProv := newStatusProviderWithRaft(s.cfg, snapFn, s.prop, selfID, clusterID)
 
 	// ---- gRPC servers ----
 	s.grpcSrv = grpc.NewServer()
@@ -190,4 +212,43 @@ func (s *Server) GracefulStop(ctx context.Context) {
 	if s.wal != nil {
 		_ = s.wal.Close()
 	}
+}
+
+var metaBucket = []byte("meta")
+var keyClusterID = []byte("cluster_id")
+
+func loadClusterID(db *bbolt.DB) (uint64, bool) {
+	var id uint64
+	_ = db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(metaBucket)
+		if b == nil {
+			return nil
+		}
+		v := b.Get(keyClusterID)
+		if len(v) == 8 {
+			id = binary.BigEndian.Uint64(v)
+		}
+		return nil
+	})
+	return id, id != 0
+}
+
+func saveClusterID(db *bbolt.DB, id uint64) error {
+	return db.Update(func(tx *bbolt.Tx) error {
+		b, err := tx.CreateBucketIfNotExists(metaBucket)
+		if err != nil {
+			return err
+		}
+		var buf [8]byte
+		binary.BigEndian.PutUint64(buf[:], id)
+		return b.Put(keyClusterID, buf[:])
+	})
+}
+
+func randomClusterID() uint64 {
+	var b [8]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return 0xfeedbeefcafebabe // fallback constant if rng fails
+	}
+	return binary.BigEndian.Uint64(b[:])
 }

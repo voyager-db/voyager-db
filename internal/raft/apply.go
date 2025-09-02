@@ -96,6 +96,10 @@ func (p *Proposer) Run(ctx context.Context) error {
 			if rd.HardState.Commit != 0 {
 				atomic.StoreUint64(&p.lastCommit, rd.HardState.Commit)
 			}
+			if rd.Lead != 0 {
+				atomic.StoreUint64(&p.leaderID, rd.Lead)
+			}
+
 			if p.transport != nil && len(rd.Messages) > 0 {
 				p.transport.Send(rd.Messages)
 			}
@@ -320,9 +324,10 @@ func (p *Proposer) proposeAndWaitDel(ctx context.Context, prop *Proposal) (*Dele
 }
 
 // Stats for Maintenance.Status
-func (p *Proposer) RaftTerm() uint64  { return atomic.LoadUint64(&p.lastTerm) }
-func (p *Proposer) RaftIndex() uint64 { return atomic.LoadUint64(&p.lastCommit) }
-func (p *Proposer) LeaderID() uint64  { return atomic.LoadUint64(&p.leaderID) }
+func (p *Proposer) RaftTerm() uint64         { return atomic.LoadUint64(&p.lastTerm) }
+func (p *Proposer) RaftIndex() uint64        { return atomic.LoadUint64(&p.lastCommit) }
+func (p *Proposer) LeaderID() uint64         { return atomic.LoadUint64(&p.leaderID) }
+func (p *Proposer) RaftAppliedIndex() uint64 { return atomic.LoadUint64(&p.lastApplied) }
 
 // ---------- ConfChange helpers ----------
 
