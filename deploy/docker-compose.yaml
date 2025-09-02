@@ -1,0 +1,48 @@
+version: "3.8"
+
+services:
+  voyager1:
+    image: ghcr.io/voyager-db/voyagerd:latest
+    container_name: voyager1
+    command: [
+      "--name", "n1",
+      "--data-dir", "/data",
+      "--client-listen", ":2379",
+      "--peer-listen", ":2380",
+      "--initial-cluster", "n1=http://voyager1:2380,n2=http://voyager2:2380,n3=http://voyager3:2380"
+    ]
+    ports:
+      - "2379:2379"
+    volumes:
+      - "data1:/data"
+
+  voyager2:
+    image: ghcr.io/voyager-db/voyagerd:latest
+    container_name: voyager2
+    command: [
+      "--name", "n2",
+      "--data-dir", "/data",
+      "--client-listen", ":2379",
+      "--peer-listen", ":2380",
+      "--initial-cluster", "n1=http://voyager1:2380,n2=http://voyager2:2380,n3=http://voyager3:2380"
+    ]
+    volumes:
+      - "data2:/data"
+
+  voyager3:
+    image: ghcr.io/voyager-db/voyagerd:latest
+    container_name: voyager3
+    command: [
+      "--name", "n3",
+      "--data-dir", "/data",
+      "--client-listen", ":2379",
+      "--peer-listen", ":2380",
+      "--initial-cluster", "n1=http://voyager1:2380,n2=http://voyager2:2380,n3=http://voyager3:2380"
+    ]
+    volumes:
+      - "data3:/data"
+
+volumes:
+  data1: {}
+  data2: {}
+  data3: {}
